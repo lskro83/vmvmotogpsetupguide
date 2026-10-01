@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VMV MotoGP Setup PWA</title>
+    
+    <!-- SDK Supabase pour le cloud en temps réel -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <link rel="manifest" href='data:application/manifest+json,{
+      "name": "VMV MotoGP Setup",
+      "short_name": "VMV Setup",
+      "start_url": "./",
+      "display": "standalone",
+      "background_color": "#121212",
+      "theme_color": "#ff1801"
+    }'>
+    <meta name="theme-color" content="#ff1801">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <style>
+        :root {
+            --primary: #ff1801;
+            --bg: #121212;
+            --surface: #1e1e1e;
+            --surface-card: #2a2a2a;
+            --text: #ffffff;
+            --text-secondary: #b0b0b0;
+            --border: #333333;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 0;
+            padding-bottom: 70px;
+        }
+        header {
+            background: linear-gradient(135deg, #000, var(--surface));
+            border-bottom: 3px solid var(--primary);
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        header h1 {
+            margin: 0;
+            font-size: 1.1rem;
+            color: var(--primary);
+            letter-spacing: 1px;
+        }
+        header p {
+            margin: 2px 0 0;
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+        .user-mini-badge {
+            background: rgba(96, 165, 250, 0.2);
+            color: #60a5fa;
+            border: 1px solid #60a5fa;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .container {
+            padding: 12px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .tabs {
+            display: flex;
+            background: var(--surface);
+            border-radius: 10px;
+            padding: 4px;
+            margin-bottom: 15px;
+        }
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+        .tab.active {
+            background: var(--primary);
+            color: #fff;
+        }
+        .section {
+            display: none;
+        }
+        .section.active {
+            display: block;
+        }
+        .filter-box {
+            margin-bottom: 12px;
+        }
+        .filter-box select {
+            width: 100%;
+            padding: 10px;
+            background: var(--surface);
+            border: 1px solid var(--primary);
+            color: var(--text);
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+        .card {
+            background: var(--surface-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .card h3 {
+            margin-top: 0;
+            color: var(--primary);
+            font-size: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .badges-container {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+        }
+        .badge {
+            background: rgba(255, 24, 1, 0.2);
+            color: var(--primary);
+            font-size: 0.7rem;
+            padding: 3px 6px;
+            border-radius: 20px;
+            border: 1px solid var(--primary);
+        }
+        .badge-front {
+            background: rgba(96, 165, 250, 0.2);
+            color: #60a5fa;
+            border: 1px solid #60a5fa;
+        }
+        .badge-mine {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+            border: 1px solid #22c55e;
+        }
+        .badge-platform {
+            background: rgba(168, 85, 247, 0.2);
+            color: #c084fc;
+            border: 1px solid #c084fc;
+        }
+        .btn-details {
+            background: transparent;
+            color: #60a5fa;
+            border: 1px solid #60a5fa;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        .full-specs {
+            display: none;
+            margin-top: 10px;
+            border-top: 1px solid var(--border);
+            padding-top: 10px;
+            font-size: 0.75rem;
+        }
+        .full-specs.open {
+            display: block;
+        }
+        .spec-category {
+            color: var(--primary);
+            font-weight: bold;
+            margin-top: 8px;
+            margin-bottom: 4px;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .specs-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px 10px;
+            color: var(--text-secondary);
+        }
+        form label {
+            display: block;
+            font-size: 0.8rem;
+            margin-bottom: 3px;
+            color: var(--text-secondary);
+            margin-top: 8px;
+        }
+        form input, form select {
+            width: 100%;
+            padding: 8px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 0.85rem;
+        }
+        button.btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 0.95rem;
+            margin-top: 15px;
+        }
+        .btn-secondary {
+            background: #333;
+            color: #fff;
+            margin-top: 8px;
+        }
+        .ai-result {
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(0,0,0,0.4);
+            border-radius: 8px;
+            font-size: 0.8rem;
+            line-height: 1.4;
+            border-left: 3px solid #60a5fa;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div>
+            <h1>VMV MOTOGP SETUP</h1>
+            <p>Cloud Communautaire Live</p>
+        </div>
+        <div id="userHeaderArea"></div>
+    </header>
+
+    <div class="container">
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('feed')">Setups</div>
+            <div class="tab" onclick="switchTab('add')">+ Partager</div>
+            <div class="tab" onclick="switchTab('ai')">🤖 Coach IA</div>
+            <div class="tab" onclick="switchTab('profile')">👤 Profil</div>
+        </div>
+
+        <!-- SECTION 1 : FEED -->
+        <div id="feed" class="section active">
+            <div class="filter-box">
+                <select id="circuitFilter" onchange="renderSetups()">
+                    <option value="ALL">🌍 Tous les circuits (22)</option>
+                </select>
+            </div>
+            <div id="setupsList"><p style="text-align:center; color:var(--text-secondary); font-size:0.85rem;">Chargement du cloud...</p></div>
+        </div>
+
+        <!-- SECTION 2 : AJOUTER -->
+        <div id="add" class="section">
+            <div class="card">
+                <h3 style="color:#fff;">Partager un Setup</h3>
+                <form id="setupForm" onsubmit="addSetup(event)">
+                    <label>Pilote & Plateforme :</label>
+                    <input type="text" id="authorDisplay" disabled style="color: var(--primary); font-weight: bold;">
+
+                    <label>Circuit Officiel</label>
+                    <select id="circuit" class="circuit-options"></select>
+
+                    <div class="spec-category">Pneumatiques</div>
+                    <label>Pneu Avant</label>
+                    <select id="tyreFront"><option value="Soft">Soft (Tendre)</option><option value="Medium" selected>Medium</option><option value="Hard">Hard (Dur)</option></select>
+                    <label>Pneu Arrière</label>
+                    <select id="tyreRear"><option value="Soft">Soft (Tendre)</option><option value="Medium" selected>Medium</option><option value="Hard">Hard (Dur)</option></select>
+
+                    <div class="spec-category">Suspension Avant (1-7)</div>
+                    <label>Précharge</label><input type="number" id="preA" min="1" max="7" value="4">
+                    <label>Huile</label><input type="number" id="oilA" min="1" max="7" value="4">
+                    <label>Ressort</label><input type="number" id="springA" min="1" max="7" value="4">
+                    <label>Compression</label><input type="number" id="compA" min="1" max="7" value="4">
+                    <label>Extension</label><input type="number" id="extA" min="1" max="7" value="4">
+
+                    <div class="spec-category">Freins</div>
+                    <label>Frein Avant</label>
+                    <select id="brakeF"><option value="340mm Standard">340mm Standard</option><option value="355mm Masse Élevée">355mm Masse Élevée</option><option value="320mm Refroid. Max">320mm Refroid. Max</option></select>
+                    <label>Frein Arrière</label>
+                    <select id="brakeR"><option value="220mm Standard">220mm Standard</option><option value="200mm Standard">200mm Standard</option></select>
+
+                    <div class="spec-category">Électronique / ECU (1-5)</div>
+                    <label>TCS (Traction)</label><input type="number" id="tcs" min="1" max="5" value="3">
+                    <label>Anti-Wheelie (AW)</label><input type="number" id="aw" min="1" max="5" value="3">
+                    <label>Frein Moteur (EBS)</label><input type="number" id="ebs" min="1" max="5" value="3">
+
+                    <div class="spec-category">Boîte de Vitesses (1-7)</div>
+                    <label>1ère</label><input type="number" id="g1" min="1" max="7" value="4">
+                    <label>2ème</label><input type="number" id="g2" min="1" max="7" value="4">
+                    <label>3ème</label><input type="number" id="g3" min="1" max="7" value="4">
+                    <label>4ème</label><input type="number" id="g4" min="1" max="7" value="4">
+                    <label>5ème</label><input type="number" id="g5" min="1" max="7" value="4">
+                    <label>6ème</label><input type="number" id="g6" min="1" max="7" value="4">
+                    <label>Rapport Final</label><input type="number" id="gFinal" min="1" max="7" value="4">
+                    <label>Anti-dribble</label><input type="number" id="antiDribble" min="1" max="7" value="4">
+
+                    <div class="spec-category">Géométrie & Bras (1-7)</div>
+                    <label>Angle de chasse</label><input type="number" id="chasse" min="1" max="7" value="4">
+                    <label>Déport</label><input type="number" id="deport" min="1" max="7" value="4">
+                    <label>Plaque Col.</label><input type="number" id="plaque" min="1" max="7" value="4">
+                    <label>Bras oscillant</label><input type="number" id="bras" min="1" max="7" value="4">
+
+                    <button type="submit" class="btn">Publier le Setup sur le Cloud</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- SECTION 3 : COACH IA -->
+        <div id="ai" class="section">
+            <div class="card">
+                <h3 style="color:#60a5fa;">🤖 Coach IA Expert</h3>
+                <label>Phase de pilotage :</label>
+                <select id="aiPhase" onchange="updateAiProbs()">
+                    <option value="">-- Choisir --</option>
+                    <option value="entree">Entrée de virage</option>
+                    <option value="milieu">Pendant le virage</option>
+                    <option value="sortie">Sortie de virage</option>
+                </select>
+                <label>Problème :</label>
+                <select id="aiProblem" onchange="runAiExpert()">
+                    <option value="">-- Choisir le comportement --</option>
+                </select>
+                <div id="aiOutput" class="ai-result" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- SECTION 4 : PROFIL -->
+        <div id="profile" class="section">
+            <div class="card">
+                <h3 style="color:#60a5fa;">👤 Mon Compte Pilote</h3>
+                <div id="profileContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = "https://glovvsctvjwjtxiaiihu.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_ACD2pNawgBJUiZQfV5aTSg_2xMzRcrZ";
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        const circuitsList = [
+            "Thaïlande (Buriram)", "Brésil (Goiânia)", "Amériques (Austin)", "Espagne (Jerez)",
+            "France (Le Mans)", "Catalogne (Barcelone)", "Italie (Mugello)", "Hongrie (Balaton Park)",
+            "République Tchèque (Brno)", "Pays-Bas (Assen)", "Allemagne (Sachsenring)", "Grande-Bretagne (Silverstone)",
+            "Aragon (MotorLand)", "Saint-Marin (Misano)", "Autriche (Spielberg)", "Japon (Motegi)",
+            "Indonésie (Mandalika)", "Australie (Phillip Island)", "Malaisie (Sepang)", "Qatar (Lusail)",
+            "Portugal (Portimão)", "Valence (Ricardo Tormo)"
+        ];
+
+        let currentUser = JSON.parse(localStorage.getItem('vmv_user_session')) || null;
+        let setups = [];
+
+        function initCircuits() {
+            const filterSelect = document.getElementById('circuitFilter');
+            const formSelect = document.getElementById('circuit');
+            circuitsList.forEach(c => {
+                filterSelect.innerHTML += `<option value="${c}">${c}</option>`;
+                formSelect.innerHTML += `<option value="${c}">${c}</option>`;
+            });
+        }
+
+        async function fetchSetupsFromCloud() {
+            const { data, error } = await supabaseClient.from('setups').select('*').order('id', { ascending: false });
+            if (!error && data) {
+                setups = data;
+                renderSetups();
+            }
+        }
+
+        function updateHeaderUser() {
+            const area = document.getElementById('userHeaderArea');
+            const authorDisp = document.getElementById('authorDisplay');
+            if(currentUser) {
+                area.innerHTML = `<button class="user-mini-badge" onclick="switchTab('profile')">👤 ${currentUser.pseudo} (${currentUser.platform})</button>`;
+                if(authorDisp) authorDisp.value = `${currentUser.pseudo} [${currentUser.platform}]`;
+            } else {
+                area.innerHTML = `<button class="user-mini-badge" onclick="switchTab('profile')" style="border-color:#ff1801; color:#ff1801;">Connexion</button>`;
+                if(authorDisp) authorDisp.value = "Invité (Connecte-toi !)";
+            }
+            renderProfile();
+        }
+
+        async function handleRegister(e) {
+            e.preventDefault();
+            const email = document.getElementById('regEmail').value.trim();
+            const pseudo = document.getElementById('regPseudo').value.trim();
+            const pass = document.getElementById('regPass').value.trim();
+            const platform = document.getElementById('regPlatform').value;
+            
+            const { data, error } = await supabaseClient.auth.signUp({
+                email: email,
+                password: pass,
+                options: { data: { pseudo: pseudo, platform: platform } }
+            });
+
+            if (error) {
+                alert("Erreur d'inscription : " + error.message);
+            } else {
+                currentUser = { pseudo: pseudo, platform: platform, email: email };
+                localStorage.setItem('vmv_user_session', JSON.stringify(currentUser));
+                updateHeaderUser();
+                switchTab('feed');
+                alert("Compte créé avec succès ! Tu es connecté.");
+            }
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value.trim();
+            const pass = document.getElementById('loginPass').value.trim();
+
+            const { data, error } = await supabaseClient.auth.signInWithPassword({
+                email: email,
+                password: pass
+            });
+
+            if (error) {
+                alert("Erreur de connexion : " + error.message);
+            } else {
+                const userMeta = data.user.user_metadata;
+                currentUser = { 
+                    pseudo: userMeta.pseudo || "Pilote", 
+                    platform: userMeta.platform || 'PS5',
+                    email: email 
+                };
+                localStorage.setItem('vmv_user_session', JSON.stringify(currentUser));
+                updateHeaderUser();
+                switchTab('feed');
+                fetchSetupsFromCloud();
+            }
+        }
+
+        async function handleLogout() {
+            await supabaseClient.auth.signOut();
+            currentUser = null;
+            localStorage.removeItem('vmv_user_session');
+            updateHeaderUser();
+            renderSetups();
+        }
+
+        function renderProfile() {
+            const pContent = document.getElementById('profileContent');
+            if(currentUser) {
+                const userSetupsCount = setups.filter(s => s.author === currentUser.pseudo).length;
+                pContent.innerHTML = `
+                    <p style="font-size:0.85rem;">Pilote : <b style="color:var(--primary); font-size:1rem;">${currentUser.pseudo}</b></p>
+                    <p style="font-size:0.85rem;">E-mail : <b style="color:var(--text);">${currentUser.email}</b></p>
+                    <p style="font-size:0.85rem;">Plateforme : <b style="color:#c084fc;">${currentUser.platform}</b></p>
+                    <p style="font-size:0.8rem; color:var(--text-secondary);">Setups partagés sur le cloud : <b>${userSetupsCount}</b></p>
+                    <button class="btn btn-secondary" onclick="handleLogout()">Se déconnecter</button>
+                `;
+            } else {
+                pContent.innerHTML = `
+                    <h4 style="color:#60a5fa; margin:5px 0 5px 0; font-size:0.85rem;">Se connecter</h4>
+                    <form onsubmit="handleLogin(event)">
+                        <label>Adresse e-mail</label>
+                        <input type="email" id="loginEmail" placeholder="ton@email.com" required>
+                        <label>Mot de passe</label>
+                        <input type="password" id="loginPass" required>
+                        <button type="submit" class="btn" style="margin-top:10px;">Connexion</button>
+                    </form>
+
+                    <hr style="border:0; border-top:1px solid var(--border); margin:15px 0;">
+
+                    <h4 style="color:var(--primary); margin:5px 0 5px 0; font-size:0.85rem;">Créer un compte</h4>
+                    <form onsubmit="handleRegister(event)">
+                        <label>Adresse e-mail</label>
+                        <input type="email" id="regEmail" placeholder="ton@email.com" required>
+                        <label>Ton Pseudo / Gamertag</label>
+                        <input type="text" id="regPseudo" placeholder="ex: Fabio20" required>
+                        <label>Plateforme de jeu</label>
+                        <select id="regPlatform">
+                            <option value="PS5">PlayStation 5 (PS5)</option>
+                            <option value="Xbox Series X/S">Xbox Series X/S</option>
+                            <option value="PC">PC / Steam</option>
+                            <option value="PS4">PlayStation 4</option>
+                            <option value="Xbox One">Xbox One</option>
+                        </select>
+                        <label>Mot de passe</label>
+                        <input type="password" id="regPass" required>
+                        <button type="submit" class="btn" style="margin-top:10px; background:#22c55e;">S'inscrire</button>
+                    </form>
+                `;
+            }
+        }
+
+        function renderSetups() {
+            const list = document.getElementById('setupsList');
+            const filter = document.getElementById('circuitFilter').value;
+            list.innerHTML = '';
+
+            const filteredSetups = filter === 'ALL' ? setups : setups.filter(s => s.circuit === filter);
+
+            if(filteredSetups.length === 0) {
+                list.innerHTML = `<p style="text-align:center; color: var(--text-secondary); font-size:0.85rem; margin-top:20px;">Aucun setup sur ce circuit pour l'instant. Sois le premier !</p>`;
+                return;
+            }
+
+            filteredSetups.forEach((s, index) => {
+                const isMine = currentUser && s.author === currentUser.pseudo;
+                list.innerHTML += `
+                    <div class="card">
+                        <h3>${s.circuit}</h3>
+                        <div class="badges-container">
+                            <span class="badge badge-front">Av: ${s.tyreFront}</span>
+                            <span class="badge">Ar: ${s.tyreRear}</span>
+                            <span class="badge badge-platform">${s.platform || 'Multi'}</span>
+                            ${isMine ? '<span class="badge badge-mine">Mon Setup</span>' : ''}
+                        </div>
+                        <p style="font-size: 0.75rem; color: var(--text-secondary); margin: 0 0 8px 0;">Pilote : <b>${s.author}</b></p>
+                        
+                        <button class="btn-details" onclick="toggleDetails(${index})">📂 Voir tout le setup complet</button>
+                        
+                        <div id="specs-${index}" class="full-specs">
+                            <div class="spec-category">Pneumatiques</div>
+                            <div class="specs-grid">
+                                <div>Avant : <b>${s.tyreFront}</b></div>
+                                <div>Arrière : <b>${s.tyreRear}</b></div>
+                            </div>
+
+                            <div class="spec-category">Suspension Avant</div>
+                            <div class="specs-grid">
+                                <div>Précharge : <b>${s.preA}/7</b></div>
+                                <div>Huile : <b>${s.oilA}/7</b></div>
+                                <div>Ressort : <b>${s.springA}/7</b></div>
+                                <div>Compression : <b>${s.compA}/7</b></div>
+                                <div>Extension : <b>${s.extA}/7</b></div>
+                            </div>
+
+                            <div class="spec-category">Freins</div>
+                            <div class="specs-grid">
+                                <div>Avant : <b>${s.brakeF}</b></div>
+                                <div>Arrière : <b>${s.brakeR}</b></div>
+                            </div>
+
+                            <div class="spec-category">Électronique (ECU)</div>
+                            <div class="specs-grid">
+                                <div>TCS : <b>${s.tcs}/5</b></div>
+                                <div>Anti-Wheelie : <b>${s.aw}/5</b></div>
+                                <div>Frein Moteur : <b>${s.ebs}/5</b></div>
+                            </div>
+
+                            <div class="spec-category">Boîte de Vitesses</div>
+                            <div class="specs-grid">
+                                <div>1ère : <b>${s.g1}</b> | 2ème : <b>${s.g2}</b></div>
+                                <div>3ème : <b>${s.g3}</b> | 4ème : <b>${s.g4}</b></div>
+                                <div>5ème : <b>${s.g5}</b> | 6ème : <b>${s.g6}</b></div>
+                                <div>Final : <b>${s.gFinal}</b></div>
+                                <div>Anti-dribble : <b>${s.antiDribble}/7</b></div>
+                            </div>
+
+                            <div class="spec-category">Géométrie & Bras</div>
+                            <div class="specs-grid">
+                                <div>Chasse : <b>${s.chasse}/7</b></div>
+                                <div>Déport : <b>${s.deport}/7</b></div>
+                                <div>Plaque Col. : <b>${s.plaque}/7</b></div>
+                                <div>Bras oscillant : <b>${s.bras}/7</b></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function toggleDetails(index) {
+            const el = document.getElementById(`specs-${index}`);
+            el.classList.toggle('open');
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            
+            if(tabId === 'feed') { document.querySelectorAll('.tab')[0].classList.add('active'); document.getElementById('feed').classList.add('active'); }
+            else if(tabId === 'add') { document.querySelectorAll('.tab')[1].classList.add('active'); document.getElementById('add').classList.add('active'); }
+            else if(tabId === 'ai') { document.querySelectorAll('.tab')[2].classList.add('active'); document.getElementById('ai').classList.add('active'); }
+            else if(tabId === 'profile') { document.querySelectorAll('.tab')[3].classList.add('active'); document.getElementById('profile').classList.add('active'); }
+        }
+
+        async function addSetup(e) {
+            e.preventDefault();
+            if(!currentUser) {
+                alert("Tu dois te connecter avec ton compte pour publier un setup sur le cloud !");
+                switchTab('profile');
+                return;
+            }
+
+            const newS = {
+                author: currentUser.pseudo,
+                platform: currentUser.platform,
+                circuit: document.getElementById('circuit').value,
+                tyreFront: document.getElementById('tyreFront').value,
+                tyreRear: document.getElementById('tyreRear').value,
+                preA: parseInt(document.getElementById('preA').value),
+                oilA: parseInt(document.getElementById('oilA').value),
+                springA: parseInt(document.getElementById('springA').value),
+                compA: parseInt(document.getElementById('compA').value),
+                extA: parseInt(document.getElementById('extA').value),
+                brakeF: document.getElementById('brakeF').value,
+                brakeR: document.getElementById('brakeR').value,
+                tcs: parseInt(document.getElementById('tcs').value),
+                aw: parseInt(document.getElementById('aw').value),
+                ebs: parseInt(document.getElementById('ebs').value),
+                g1: parseInt(document.getElementById('g1').value),
+                g2: parseInt(document.getElementById('g2').value),
+                g3: parseInt(document.getElementById('g3').value),
+                g4: parseInt(document.getElementById('g4').value),
+                g5: parseInt(document.getElementById('g5').value),
+                g6: parseInt(document.getElementById('g6').value),
+                gFinal: parseInt(document.getElementById('gFinal').value),
+                antiDribble: parseInt(document.getElementById('antiDribble').value),
+                chasse: parseInt(document.getElementById('chasse').value),
+                deport: parseInt(document.getElementById('deport').value),
+                plaque: parseInt(document.getElementById('plaque').value),
+                bras: parseInt(document.getElementById('bras').value)
+            };
+
+            const { error } = await supabaseClient.from('setups').insert([newS]);
+            if (error) {
+                alert("Erreur lors de l'envoi sur le cloud : " + error.message);
+            } else {
+                alert("Setup publié avec succès pour toute la communauté !");
+                document.getElementById('setupForm').reset();
+                switchTab('feed');
+                fetchSetupsFromCloud();
+            }
+        }
+
+        function updateAiProbs() {
+            const phase = document.getElementById('aiPhase').value;
+            const probSelect = document.getElementById('aiProblem');
+            probSelect.innerHTML = '<option value="">-- Choisir le comportement --</option>';
+            let options = [];
+            if(phase === 'entree') {
+                options = [{val: 'survirage', text: 'Survirage / Arrière décroche'}, {val: 'sousvirage', text: 'Sous-virage / Élargit'}, {val: 'tangage', text: 'Tangage au freinage'}];
+            } else if(phase === 'milieu') {
+                options = [{val: 'grip', text: 'Manque de grip sur bosses'}, {val: 'lourde', text: 'Moto lourde / Enchaînements'}];
+            } else if(phase === 'sortie') {
+                options = [{val: 'patinage', text: 'Patinage / Motricité'}, {val: 'wheelie', text: 'Wheelie à l\'accélération'}, {val: 'pointe', text: 'Manque vitesse de pointe'}];
+            }
+            options.forEach(o => probSelect.innerHTML += `<option value="${o.val}">${o.text}</option>`);
+            document.getElementById('aiOutput').style.display = 'none';
+        }
+
+        function runAiExpert() {
+            const prob = document.getElementById('aiProblem').value;
+            const out = document.getElementById('aiOutput');
+            if(!prob) { out.style.display = 'none'; return; }
+            out.style.display = 'block';
+            if(prob === 'survirage') out.innerHTML = "💡 <b>IA :</b> Diminue la précharge avant/arrière ou recule la plaque de colonne de direction.";
+            else if(prob === 'sousvirage') out.innerHTML = "💡 <b>IA :</b> Augmente la précharge ou avance la plaque de colonne de direction.";
+            else if(prob === 'tangage') out.innerHTML = "💡 <b>IA :</b> Augmente la compression de la fourche avant pour ralentir le transfert de charge.";
+            else if(prob === 'patinage') out.innerHTML = "💡 <b>IA :</b> Augmente le TCS de l'ECU ou passe sur un pneu Medium/Hard.";
+            else if(prob === 'wheelie') out.innerHTML = "💡 <b>IA :</b> Augmente l'Anti-Wheelie (AW) de l'ECU et durcis l'extension de fourche.";
+            else if(prob === 'pointe') out.innerHTML = "💡 <b>IA :</b> Allonge les rapports de boîte de vitesses pour gagner en vitesse de pointe.";
+            else out.innerHTML = "💡 <b>IA :</b> Ajuste les suspensions et les masses selon les règles du dictionnaire technique.";
+        }
+
+        initCircuits();
+        updateHeaderUser();
+        fetchSetupsFromCloud();
+    </script>
+</body>
+</html>
